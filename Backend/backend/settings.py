@@ -11,11 +11,18 @@ load_dotenv()  # reads the .env file you created in the Backend folder
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ── Security ──────────────────────────────────────────────────────
-SECRET_KEY = os.environ.get('SECRET_KEY', 'fallback-dev-key')
-DEBUG      = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = [
+def env_list(name):
+    """Read a comma-separated environment variable as a list."""
+    return [item.strip() for item in os.environ.get(name, '').split(',') if item.strip()]
+
+
+# ── Security ──────────────────────────────────────────────────────
+DEBUG      = os.environ.get('DEBUG', 'False') == 'True'
+# The dev key only applies in DEBUG; otherwise Django raises an error if SECRET_KEY is unset.
+SECRET_KEY = os.environ.get('SECRET_KEY', 'fallback-dev-key' if DEBUG else '')
+
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS') or [
     "65.0.134.183",
     "65.0.134.183.nip.io",
     "infidots.com",
@@ -83,7 +90,7 @@ DATABASES = {
         'ENGINE':   'django.db.backends.postgresql',
         'NAME':     os.environ.get('DB_NAME',     'soorathautos_2_0'),
         'USER':     os.environ.get('DB_USER',     'soorathuser'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'StrongPassword123'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
         'HOST':     os.environ.get('DB_HOST',     'localhost'),
         'PORT':     os.environ.get('DB_PORT',     '5432'),
     }
@@ -112,18 +119,20 @@ SIMPLE_JWT = {
 }
 
 # ── CORS ──────────────────────────────────────────────────────
-CORS_ALLOWED_ORIGINS = [
+CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS') or [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "https://prod.d3q88yk7ov76i2.amplifyapp.com",
 ]
+CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS')  # needed for admin login over HTTPS behind nginx
 
 # ── AWS S3 (media files) ──────────────────────────────────────────
 AWS_ACCESS_KEY_ID       = os.environ.get('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY   = os.environ.get('AWS_SECRET_ACCESS_KEY')
 AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_S3_BUCKET')
 AWS_S3_REGION_NAME      = os.environ.get('AWS_REGION', 'ap-south-1')
-AWS_S3_CUSTOM_DOMAIN    = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
+AWS_S3_ENDPOINT_URL     = os.environ.get('AWS_S3_ENDPOINT_URL') or None  # for S3-compatible storage such as Cloudflare R2
+AWS_S3_CUSTOM_DOMAIN    = os.environ.get('AWS_S3_CUSTOM_DOMAIN') or f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
 
 AWS_S3_FILE_OVERWRITE   = False          # don't overwrite same-name uploads
 AWS_DEFAULT_ACL          = None           # use bucket-level ACL

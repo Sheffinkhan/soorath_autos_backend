@@ -1,0 +1,14 @@
+[Unit]
+Description=Soorath Autos backend (gunicorn)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/soorath_autos_backend/Backend
+ExecStart=/opt/soorath_autos_backend/Backend/venv/bin/gunicorn backend.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 120
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
