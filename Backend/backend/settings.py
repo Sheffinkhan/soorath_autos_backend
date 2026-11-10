@@ -15,14 +15,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'fallback-dev-key')
 DEBUG      = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = [
-    "65.0.134.183",
-    "65.0.134.183.nip.io",
-    "infidots.com",
-    "www.infidots.com",
-    "localhost",
-    "127.0.0.1"
-]
 
 # ── Apps ──────────────────────────────────────────────────────────
 INSTALLED_APPS = [
@@ -112,10 +104,13 @@ SIMPLE_JWT = {
 }
 
 # ── CORS ──────────────────────────────────────────────────────
+ALLOWED_HOSTS = ["api.soorathautos.in", "3.25.218.45"]
+
 CORS_ALLOWED_ORIGINS = [
+    "https://soorathautos.in",
+    "https://www.soorathautos.in",
+    "https://prod.d1c393hp1kvmq2.amplifyapp.com",
     "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://prod.d3q88yk7ov76i2.amplifyapp.com",
 ]
 
 # ── AWS S3 (media files) ──────────────────────────────────────────
