@@ -1,0 +1,75 @@
+# Deploys the backend to the EC2 server whenever something lands on main.
+# It does what used to be done by hand on the server:
+#   cd ~/soorath_autos_backend && git pull && sudo systemctl restart gunicorn
+# plus applying any new database migrations, then checks the API still answers.
+#
+# Needs these repository secrets (Settings > Secrets and variables > Actions):
+#   EC2_HOST     server address, e.g. 3.25.218.45
+#   EC2_USER     login user, e.g. ec2-user
+#   EC2_SSH_KEY  private key whose public half is in ~/.ssh/authorized_keys on the server
+
+name: Deploy backend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # lets you re-run a deploy from the Actions tab
+
+# Never run two deploys at the same time; a newer one waits for the current one.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_USER: ${{ secrets.EC2_USER }}
+      API_URL: https://api.soorathautos.in/api/vehicles/
+
+    steps:
+      - name: Set up SSH key
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          if [ -z "$EC2_HOST" ] || [ -z "$EC2_USER" ] || [ -z "$EC2_SSH_KEY" ]; then
+            echo "::error::Add the EC2_HOST, EC2_USER and EC2_SSH_KEY repository secrets first."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -T 15 "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Pull changes, migrate and restart gunicorn
+        run: |
+          ssh -i ~/.ssh/deploy_key -o ConnectTimeout=20 "$EC2_USER@$EC2_HOST" 'bash -s' <<'EOF'
+          set -euo pipefail
+          cd ~/soorath_autos_backend
+          echo "Before: $(git log --oneline -1)"
+          git pull --ff-only
+          echo "After:  $(git log --oneline -1)"
+          cd Backend
+          venv/bin/python manage.py migrate --noinput
+          sudo systemctl restart gunicorn
+          EOF
+
+      - name: Check the API responds
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsS -o /dev/null "$API_URL"; then
+              echo "API is up."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::$API_URL did not respond after the restart."
+          exit 1
+
+      - name: Show gunicorn status and logs
+        if: failure()
+        run: |
+          ssh -i ~/.ssh/deploy_key -o ConnectTimeout=20 "$EC2_USER@$EC2_HOST" \
+            'sudo systemctl status gunicorn --no-pager -l | head -20; sudo journalctl -u gunicorn -n 40 --no-pager' || true
