@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank, TrigramSimilarity
-from django.db.models import Q
+from django.db.models import Q, Case, When, Value, BooleanField
 from .models import Vehicle, VehicleImage
 from .serializers import VehicleSerializer
 from .search_backends import FuzzySearchBackend   # ← NEW
@@ -26,10 +26,17 @@ class VehicleListAPIView(generics.ListAPIView):
     ]
     filterset_fields = ['brand', 'fuel', 'transmission', 'status']
     ordering_fields  = ['year', 'kilometers']
-    ordering         = ['-id']
+    # Featured first, then vehicles with a photo, then the rest; newest first within each group.
+    ordering         = ['-is_featured', '-has_photo', '-id']
 
     def get_queryset(self):
-        qs = Vehicle.objects.prefetch_related('images')
+        qs = Vehicle.objects.prefetch_related('images').annotate(
+            has_photo=Case(
+                When(Q(image__isnull=True) | Q(image=''), then=Value(False)),
+                default=Value(True),
+                output_field=BooleanField(),
+            )
+        )
         status = self.request.query_params.get('status')
         if status:
             return qs.filter(status=status)
