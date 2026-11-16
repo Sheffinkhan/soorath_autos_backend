@@ -65,4 +65,9 @@ API-first architecture
 Advanced database optimization (search indexing)
 Scalable file storage using AWS
 🔗 Live Project
-https://prod.d3q88yk7ov76i2.amplifyapp.com/
+https://www.soorathautos.in/
+
+🚀 Deployment
+Every merge or push to main deploys automatically (GitHub Actions, .github/workflows/deploy.yml):
+it pulls the code on the EC2 server, applies migrations, restarts gunicorn and checks the API responds.
+Progress and logs are in the Actions tab.
