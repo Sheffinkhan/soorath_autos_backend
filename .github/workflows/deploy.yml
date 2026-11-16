@@ -49,6 +49,9 @@ jobs:
           set -euo pipefail
           cd ~/soorath_autos_backend
           echo "Before: $(git log --oneline -1)"
+          # Python rewrites its .pyc cache files when code changes. Some are tracked in git,
+          # so reset them first or git pull refuses to update them. They're rebuilt automatically.
+          git ls-files -m -z -- '*.pyc' | xargs -0 -r git checkout --
           git pull --ff-only
           echo "After:  $(git log --oneline -1)"
           cd Backend
@@ -72,4 +75,4 @@ jobs:
         if: failure()
         run: |
           ssh -i ~/.ssh/deploy_key -o ConnectTimeout=20 "$EC2_USER@$EC2_HOST" \
-            'sudo systemctl status gunicorn --no-pager -l | head -20; sudo journalctl -u gunicorn -n 40 --no-pager' || true
+            'cd ~/soorath_autos_backend && echo "== git status" && git status --short | grep -v "^?? " | head -20; echo "== gunicorn"; sudo systemctl status gunicorn --no-pager -l | head -20; sudo journalctl -u gunicorn -n 40 --no-pager' || true
